@@ -2,18 +2,68 @@
 
 import { Suspense } from 'react'
 import dynamic from 'next/dynamic'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { HousingListing, MapLocation } from '@/types/housing'
 import CitySearchBar from '@/features/map/CitySearchBar'
 import { InstantSearch } from '@/features/search/core/SearchContext'
-import { Hits, Stats, Pagination, SortBy } from '@/features/search/widgets/Widgets'
-import { RefinementList } from '@/features/search/widgets/RefinementList'
+import { Hits, Stats, Pagination } from '@/features/search/widgets/Widgets'
 import { ListingCard } from '@/features/search/cards/ListingCard'
 import type { Hit } from '@/features/search/core/types'
 import type { SearchConfig } from '@/features/search/core/types'
+import { useSearch } from '@/features/search/core/SearchContext'
 
 const MapView = dynamic(() => import('@/features/map/MapView'), { ssr: false })
+
+type PriceFilter = 'all' | 'low' | 'mid' | 'high'
+
+const PRICE_CHIPS: { id: PriceFilter; label: string }[] = [
+  { id: 'all', label: 'Tous les prix' },
+  { id: 'low', label: '< 500 €' },
+  { id: 'mid', label: '500 – 800 €' },
+  { id: 'high', label: '> 800 €' },
+]
+
+function applyPriceFilter(listings: HousingListing[], filter: PriceFilter): HousingListing[] {
+  if (filter === 'all') return listings
+  if (filter === 'low') return listings.filter(l => (l.price ?? 0) < 500)
+  if (filter === 'mid') return listings.filter(l => (l.price ?? 0) >= 500 && (l.price ?? 0) <= 800)
+  return listings.filter(l => (l.price ?? 0) > 800)
+}
+
+// Sort chips rendered inside InstantSearch context
+function SortChips() {
+  const { handleSort, sortKey } = useSearch()
+  const options = [
+    { key: '', label: 'Pertinence' },
+    { key: 'price_asc', label: 'Prix ↑' },
+    { key: 'price_desc', label: 'Prix ↓' },
+  ]
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      {options.map(opt => {
+        const active = sortKey === opt.key
+        return (
+          <button
+            key={opt.key}
+            onClick={() => handleSort(opt.key)}
+            style={{
+              padding: '6px 14px', borderRadius: 99, cursor: 'pointer',
+              fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
+              border: `1.5px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+              background: active ? 'var(--accent)' : 'var(--surface)',
+              color: active ? '#fff' : 'var(--text)',
+              transition: 'all 0.15s',
+              flexShrink: 0,
+            }}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 // Convert HousingListing → InstantSearch Hit
 function toHit(l: HousingListing): Hit {
@@ -25,7 +75,6 @@ function toHit(l: HousingListing): Hit {
     price: l.price ?? 0,
     images: l.imageUrl ? [l.imageUrl] : [],
     type: '',
-    // keep lat/lon for potential map sync
     lat: l.lat,
     lon: l.lon,
   } as unknown as Hit
@@ -74,7 +123,7 @@ function ExploreContent() {
   )
   const [listings, setListings] = useState<HousingListing[]>([])
   const [loading, setLoading] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>('all')
 
   // Fetch listings from DB
   const loadListings = useCallback(async (city: string) => {
@@ -100,6 +149,7 @@ function ExploreContent() {
   // City change from search bar
   const handleCitySelect = (loc: MapLocation) => {
     setLocation(loc)
+    setPriceFilter('all')
     const city = loc.name.split(',')[0].trim()
     const params = new URLSearchParams({
       city,
@@ -111,46 +161,64 @@ function ExploreContent() {
     loadListings(city)
   }
 
-  const hits: Hit[] = listings.map(toHit)
+  const filteredListings = useMemo(
+    () => applyPriceFilter(listings, priceFilter),
+    [listings, priceFilter]
+  )
+  const hits: Hit[] = filteredListings.map(toHit)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 60px)', background: 'var(--bg)', fontFamily: 'inherit' }}>
 
       {/* ── Top bar ── */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
+        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
         padding: '10px 20px', background: 'var(--surface)',
         borderBottom: '1px solid var(--border)', zIndex: 100, flexShrink: 0,
       }}>
-        <div style={{ flex: 1, maxWidth: 440 }}>
+        {/* City search */}
+        <div style={{ flex: '1 1 260px', maxWidth: 400 }}>
           <CitySearchBar onSelect={handleCitySelect} variant="compact" initialValue={cityParam} />
         </div>
 
+        {/* Price filter chips */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flexShrink: 0 }}>
+          {PRICE_CHIPS.map(chip => {
+            const active = priceFilter === chip.id
+            return (
+              <button
+                key={chip.id}
+                onClick={() => setPriceFilter(chip.id)}
+                style={{
+                  padding: '7px 15px', borderRadius: 99, cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: 12, fontWeight: 600,
+                  border: `1.5px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+                  background: active ? 'var(--accent)' : 'var(--surface)',
+                  color: active ? '#fff' : 'var(--text)',
+                  transition: 'all 0.15s',
+                  flexShrink: 0,
+                }}
+              >
+                {chip.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* City / count badge */}
         {location && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 7,
+            display: 'flex', alignItems: 'center', gap: 7, marginLeft: 'auto',
             background: 'var(--accent-alpha)', border: '1px solid var(--accent)',
             borderRadius: 99, padding: '5px 14px', fontSize: 12, color: 'var(--accent)',
             fontWeight: 600, flexShrink: 0,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)' }} />
-            {loading ? `${location.name.split(',')[0]} • chargement…` : `${location.name.split(',')[0]} • ${listings.length} logement(s)`}
+            {loading
+              ? `${location.name.split(',')[0]} • chargement…`
+              : `${location.name.split(',')[0]} • ${filteredListings.length} logement(s)`}
           </div>
         )}
-
-        {/* Mobile sidebar toggle */}
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          style={{
-            display: 'none',
-            padding: '8px 14px', background: 'var(--surface)',
-            border: '1.5px solid var(--border)', borderRadius: 10,
-            fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-          }}
-          className="mobile-toggle"
-        >
-          {sidebarOpen ? '🗺 Carte' : '📋 Liste'}
-        </button>
       </div>
 
       {/* ── Main split layout ── */}
@@ -161,7 +229,7 @@ function ExploreContent() {
           width: '50%', flexShrink: 0, position: 'relative',
           borderRight: '1px solid var(--border)',
         }}>
-          <MapView location={location} listings={listings} />
+          <MapView location={location} listings={filteredListings} />
           {!location && (
             <div style={{
               position: 'absolute', inset: 0,
@@ -180,72 +248,44 @@ function ExploreContent() {
         {/* RIGHT — Listings (50%) */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <InstantSearch data={hits} config={searchConfig} perPage={8}>
-            <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
 
-              {/* Sidebar filters */}
-              <aside style={{
-                width: 220, flexShrink: 0,
-                padding: '16px 12px',
-                borderRight: '1px solid var(--border)',
-                overflowY: 'auto',
-                background: 'var(--surface)',
-                display: 'flex', flexDirection: 'column', gap: 12,
-              }}>
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-muted)' }}>
-                  Filtres
-                </p>
-                <RefinementList facetKey="location" label="Ville" />
-                <RefinementList facetKey="type" label="Type" />
-              </aside>
+            {/* Toolbar: stats + sort chips */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 16px', borderBottom: '1px solid var(--border)',
+              background: 'var(--surface)', flexShrink: 0, gap: 10, flexWrap: 'wrap',
+            }}>
+              <Stats />
+              <SortChips />
+            </div>
 
-              {/* Results */}
-              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-
-                {/* Toolbar */}
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '12px 16px', borderBottom: '1px solid var(--border)',
-                  background: 'var(--surface)', flexShrink: 0,
-                }}>
-                  <Stats />
-                  <SortBy />
+            {/* Cards */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+              {loading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} style={{ height: 130, background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', opacity: 0.6 }} />
+                  ))}
                 </div>
-
-                {/* Cards */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
-                  {loading ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} style={{ height: 130, background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', opacity: 0.6 }} />
-                      ))}
-                    </div>
-                  ) : !location ? (
-                    <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 16px', fontSize: 14 }}>
-                      Lancez une recherche pour voir les annonces.
-                    </div>
-                  ) : (
-                    <Hits<Hit>
-                      renderHit={(hit) => <ListingCard hit={hit} />}
-                      emptyMessage="Aucun logement trouvé pour cette ville."
-                    />
-                  )}
+              ) : !location ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 16px', fontSize: 14 }}>
+                  Lancez une recherche pour voir les annonces.
                 </div>
+              ) : (
+                <Hits<Hit>
+                  renderHit={(hit) => <ListingCard hit={hit} />}
+                  emptyMessage="Aucun logement trouvé pour cette ville."
+                />
+              )}
+            </div>
 
-                {/* Pagination */}
-                <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
-                  <Pagination />
-                </div>
-              </div>
+            {/* Pagination */}
+            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+              <Pagination />
             </div>
           </InstantSearch>
         </div>
       </div>
-
-      <style>{`
-        @media (max-width: 768px) {
-          .mobile-toggle { display: flex !important; }
-        }
-      `}</style>
     </div>
   )
 }

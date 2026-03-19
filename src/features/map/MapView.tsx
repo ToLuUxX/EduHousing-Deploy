@@ -60,6 +60,7 @@ export default function MapView({ location, listings }: MapViewProps) {
   const markerRef = useRef<any>(null)
   const listingMarkersRef = useRef<any[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [mapReady, setMapReady] = useState(false)
 
   // Init map
   useEffect(() => {
@@ -80,6 +81,8 @@ export default function MapView({ location, listings }: MapViewProps) {
         map.addControl(new mgl.NavigationControl(), 'bottom-right')
         map.fitBounds(FRANCE_BOUNDS, { padding: 20, duration: 0 })
         mapInstanceRef.current = map
+        // Signal that the map instance is ready so pending fly-to can run
+        if (!cancelled) setMapReady(true)
       })
       .catch((e: Error) => {
         if (!cancelled) setError(e.message)
@@ -92,7 +95,7 @@ export default function MapView({ location, listings }: MapViewProps) {
     }
   }, [])
 
-  // Fly to searched location
+  // Fly to searched location — depends on mapReady so it also fires after async map init
   useEffect(() => {
     if (!location || !mapInstanceRef.current) return
     const mgl = (window as MapLibreWindow).maplibregl
@@ -115,7 +118,7 @@ export default function MapView({ location, listings }: MapViewProps) {
       essential: true,
     })
     markerRef.current.togglePopup()
-  }, [location])
+  }, [location, mapReady])
 
   // Render listing markers
   useEffect(() => {
@@ -153,7 +156,7 @@ export default function MapView({ location, listings }: MapViewProps) {
     if (!bounds.isEmpty()) {
       mapInstanceRef.current.fitBounds(bounds, { padding: 60, maxZoom: 13, duration: 700 })
     }
-  }, [listings])
+  }, [listings, mapReady])
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', background: '#edf5ff' }}>
