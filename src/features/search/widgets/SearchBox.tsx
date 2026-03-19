@@ -6,14 +6,15 @@ import { useSearch } from '../core/SearchContext'
 interface SearchBoxProps {
   placeholder?: string
   className?: string
+  style?: React.CSSProperties
 }
 
-export function SearchBox({ placeholder = 'Rechercher…', className }: SearchBoxProps) {
+export function SearchBox({ placeholder = 'Rechercher…', className, style }: SearchBoxProps) {
   const { query, handleQuery, clearAll, activeFiltersCount } = useSearch()
   const inputRef = useRef<HTMLInputElement>(null)
 
   return (
-    <div className={className} style={{ position: 'relative', display: 'flex', gap: 8, alignItems: 'center' }}>
+    <div className={className} style={{ position: 'relative', display: 'flex', gap: 8, alignItems: 'center', ...style }}>
       <div style={{ position: 'relative', flex: 1 }}>
         <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 16, opacity: 0.35, pointerEvents: 'none' }}>⌕</span>
         <input

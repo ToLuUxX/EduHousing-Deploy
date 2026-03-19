@@ -1,3 +1,4 @@
+import React from 'react'
 import { Highlight } from '../widgets/Highlight'
 import { useSearch } from '../core/SearchContext'
 import type { Hit } from '../core/types'
@@ -57,15 +58,15 @@ export function StudentCard({ hit }: StudentCardProps) {
         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
           <Highlight text={String(hit.name ?? '')} query={query} />
         </h3>
-        {hit.university && (
+        {hit.university != null && (
           <p style={{ margin: 0, fontSize: 13, color: 'var(--accent)', fontWeight: 500 }}>
             <Highlight text={String(hit.university)} query={query} />
           </p>
         )}
-        {hit.city && (
+        {hit.city != null && (
           <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>📍 {String(hit.city)}</p>
         )}
-        {hit.bio && (
+        {hit.bio != null && (
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>
             <Highlight text={String(hit.bio)} query={query} />
           </p>
@@ -130,12 +131,12 @@ export function OwnerCard({ hit }: OwnerCardProps) {
         <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
           <Highlight text={String(hit.name ?? '')} query={query} />
         </h3>
-        {hit.email && (
+        {hit.email != null && (
           <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
             <Highlight text={String(hit.email)} query={query} />
           </p>
         )}
-        {hit.city && (
+        {hit.city != null && (
           <p style={{ margin: 0, fontSize: 12, color: 'var(--text-muted)' }}>📍 {String(hit.city)}</p>
         )}
         {hit.listingCount != null && (

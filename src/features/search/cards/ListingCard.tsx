@@ -1,3 +1,4 @@
+import React from 'react'
 import { Highlight } from '../widgets/Highlight'
 import { useSearch } from '../core/SearchContext'
 import type { Hit } from '../core/types'
@@ -43,7 +44,7 @@ export function ListingCard({ hit }: ListingCardProps) {
         </div>
       )}
       <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
-        {hit.type && (
+        {hit.type != null && (
           <span style={{
             fontSize: 11,
             fontWeight: 700,
@@ -55,19 +56,19 @@ export function ListingCard({ hit }: ListingCardProps) {
             borderRadius: 99,
             alignSelf: 'flex-start',
           }}>
-            {String(hit.type)}
+            {String(hit.type ?? '')}
           </span>
         )}
         <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: 'var(--text)', lineHeight: 1.3 }}>
           <Highlight text={String(hit.title ?? '')} query={query} />
         </h3>
-        {hit.location && (
+        {hit.location != null && (
           <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
             <span>📍</span>
             <Highlight text={String(hit.location)} query={query} />
           </p>
         )}
-        {hit.description && (
+        {hit.description != null && (
           <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>
             <Highlight text={String(hit.description)} query={query} />
           </p>
