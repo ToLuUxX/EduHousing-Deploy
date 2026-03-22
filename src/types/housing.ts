@@ -28,4 +28,11 @@ export interface HousingListing {
   price?: number
   lat: number
   lon: number
+  description?: string
+  surface?: number
+  rooms?: number
+  type?: string
+  address?: string
+  furnished?: boolean
+  available_from?: string
 }

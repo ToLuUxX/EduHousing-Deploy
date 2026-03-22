@@ -25,12 +25,31 @@ type DbRow = {
   lat: number | string | null
   lon: number | string | null
   image_url: string | null
+  type_logement: string | null
+  surface: number | string | null
+  nb_pieces: number | string | null
+  meuble: boolean | null
+  disponible_le: string | Date | null
+  description: string | null
+  adresse: string | null
 }
 
 function toListing(row: DbRow, index: number): HousingListing | null {
   const lat = asNumber(row.lat)
   const lon = asNumber(row.lon)
   if (lat === null || lon === null) return null
+
+  let available_from: string | undefined = undefined
+  if (row.disponible_le) {
+    if (row.disponible_le instanceof Date) {
+      available_from = row.disponible_le.toISOString().slice(0, 10)
+    } else {
+      const d = new Date(row.disponible_le)
+      available_from = Number.isNaN(d.getTime())
+        ? String(row.disponible_le)
+        : d.toISOString().slice(0, 10)
+    }
+  }
 
   return {
     id: String(row.id ?? `listing-${index}`),
@@ -41,6 +60,13 @@ function toListing(row: DbRow, index: number): HousingListing | null {
     price: asNumber(row.price) ?? undefined,
     lat,
     lon,
+    type: row.type_logement ? String(row.type_logement) : undefined,
+    surface: asNumber(row.surface) ?? undefined,
+    rooms: asNumber(row.nb_pieces) ?? undefined,
+    furnished: row.meuble != null ? Boolean(row.meuble) : undefined,
+    available_from,
+    description: row.description ? String(row.description) : undefined,
+    address: row.adresse ? String(row.adresse) : undefined,
   }
 }
 
@@ -64,13 +90,20 @@ export async function GET(req: NextRequest) {
     const sql = `
       SELECT
         id,
-        "titre"     AS title,
-        "ville"     AS city,
-        "pays"      AS country,
-        "prix"      AS price,
-        "latitude"  AS lat,
-        "longitude" AS lon,
-        "image_url" AS image_url
+        "titre"          AS title,
+        "ville"          AS city,
+        "pays"           AS country,
+        "prix"           AS price,
+        "latitude"       AS lat,
+        "longitude"      AS lon,
+        "image_url"      AS image_url,
+        "type_logement"  AS type_logement,
+        "surface"        AS surface,
+        "nb_pieces"      AS nb_pieces,
+        "meuble"         AS meuble,
+        "disponible_le"  AS disponible_le,
+        "description"    AS description,
+        "adresse"        AS adresse
       FROM ${tableRef}
       WHERE lower("ville") LIKE lower($1)
       AND lower(coalesce("pays", 'france')) IN ('france', 'fr')

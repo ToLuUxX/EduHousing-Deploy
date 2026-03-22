@@ -6,6 +6,7 @@ import type { HousingListing, MapLocation } from '@/types/housing'
 interface MapViewProps {
   location: MapLocation | null
   listings: HousingListing[]
+  onMarkerClick?: (listing: HousingListing) => void
 }
 
 type MapLibreWindow = Window & { maplibregl?: any }
@@ -54,7 +55,7 @@ function loadMapLibre(): Promise<any> {
   })
 }
 
-export default function MapView({ location, listings }: MapViewProps) {
+export default function MapView({ location, listings, onMarkerClick }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markerRef = useRef<any>(null)
@@ -149,6 +150,10 @@ export default function MapView({ location, listings }: MapViewProps) {
         .setLngLat([l.lon, l.lat])
         .setPopup(popup)
         .addTo(mapInstanceRef.current)
+      marker.getElement().style.cursor = 'pointer'
+      marker.getElement().addEventListener('click', () => {
+        onMarkerClick?.(l)
+      })
       bounds.extend([l.lon, l.lat])
       return marker
     })
